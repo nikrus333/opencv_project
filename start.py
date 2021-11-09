@@ -190,6 +190,8 @@ if __name__ == "__main__":
             frame_white_table =  sol.foundWhiteTable(frame_bin)
             cv.imshow('frame_bin',frame_bin)
             cv.imshow('frame_white_table',frame_white_table)
+            
+            #
             #cv.imshow('frame_trans',frame_transofrm)
             #cv.imshow('frame_trans',frame_hough)
             if cv.waitKey(1) & 0xFF == ord('q'):
