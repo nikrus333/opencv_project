@@ -3,6 +3,7 @@ import cv2 as cv
 import numpy as np
 #for test
 import matplotlib.pylab as plt
+from numpy.core.defchararray import center
 from numpy.lib.histograms import histogram
 
 class StartVideo():
@@ -57,7 +58,7 @@ class Solution():
     def satartData(self, frame):
         blank_i = 1
 
-    def binareid(self, frame, bin_cof = 220): # бинаризация 
+    def binareid(self, frame, bin_cof = 235): # бинаризация 
         r_channel = frame[:, :, 2]  
         binary = np.zeros_like(r_channel)
         binary[(r_channel > bin_cof)] = 1
@@ -72,17 +73,20 @@ class Solution():
         return all_binary
 
     def transformFunc(self, frame):   # аффинные преобразования
-        src = np.float32([  [428, 410],
-                            [493, 59],
-                            [144, 58],
-                            [211, 414]])
+        src = np.float32([  
+                            [639, 470],
+                            [620, 59] ,
+                            [20, 58],
+                            [1, 470]
+                            ])
         dot_src = np.int32(src, dtype = np.int32)
         image_size = [480, 640]                   
-        dst = np.float32([  
+        dst = np.float32([  [image_size[1], image_size[0]],
+                            [image_size[1], 0],
                             [0, 0],
-                            [0, image_size[0]],
-                            [image_size[1], image_size[0]],
-                            [image_size[1], 0]
+                            [0, image_size[0]]
+                            
+                            
                                                     ])
         cv.polylines(frame, [dot_src], True, 200)
         m_transform = cv.getPerspectiveTransform(src, dst)
@@ -103,11 +107,13 @@ class Solution():
         window_half_height = 30
         x_center_left_windows = index_left
         x_center_right_windows = index_right
-        left_lane = np.array([], dtype=np.int16)
-        right_line = np.array([], dtype=np.int16)
+        left_lane_ind = np.array([], dtype=np.int16)
+        right_lane_ind = np.array([], dtype=np.int16)
 
         out_frame = np.dstack((frame, frame, frame)) 
-
+        non_zero = frame.nonzero()
+        white_pixel_ind_y = np.array(non_zero[0])
+        white_pixel_ind_x = np.array(non_zero[1])
         for window in range(nwindows):
             win_y1 = frame.shape[0] - (window + 1) * window_height
             win_y2 = frame.shape[0] - (window) * window_height
@@ -117,7 +123,43 @@ class Solution():
             right_win_x2 = x_center_right_windows + window_half_height
         
             cv.rectangle(out_frame, (left_win_x1, win_y1), (left_win_x2, win_y2), (50 + window * 21, 0, 0), 2)
-            cv.rectangle(out_frame, (right_win_x1, win_y1), (right_win_x2, win_y2), (0, 50 + window * 21, 0), 2)
+            cv.rectangle(out_frame, (right_win_x1, win_y1), (right_win_x2, win_y2), (50 + window * 21, 50 + window * 21, 0), 2)
+
+            good_left_ind = ((white_pixel_ind_y >= win_y1) & (white_pixel_ind_y <= win_y2) & 
+                (white_pixel_ind_x >=left_win_x1) & (white_pixel_ind_x <= left_win_x2)).nonzero()[0]
+            good_right_ind = ((white_pixel_ind_y >= win_y1) & (white_pixel_ind_y <= win_y2) & 
+                (white_pixel_ind_x >=right_win_x1) & (white_pixel_ind_x <= right_win_x2)).nonzero()[0]
+            
+            left_lane_ind = np.concatenate((left_lane_ind, good_left_ind))
+            right_lane_ind = np.concatenate((right_lane_ind, good_right_ind))
+
+            if len(good_left_ind) > 50:
+                x_center_left_windows = np.int(np.mean(white_pixel_ind_x[good_left_ind]))
+            if len(good_right_ind) > 50:
+                x_center_right_windows = np.int(np.mean(white_pixel_ind_x[good_right_ind]))
+
+           
+
+        out_frame[white_pixel_ind_y[left_lane_ind], white_pixel_ind_x[left_lane_ind]] = [255, 0, 0]
+        out_frame[white_pixel_ind_y[right_lane_ind], white_pixel_ind_x[right_lane_ind]] = [255, 255, 0]
+
+        #def solution_center_line(out_frame, leftx, lefty )
+        leftx = white_pixel_ind_x[left_lane_ind]
+        lefty = white_pixel_ind_y[left_lane_ind] 
+        rightx = white_pixel_ind_x[right_lane_ind]
+        righty = white_pixel_ind_y[right_lane_ind]
+        try:
+            left_fit = np.polyfit(lefty, leftx, 2) 
+            right_fit = np.polyfit(righty, rightx, 2)      
+            center_fit = ((left_fit + right_fit) / 2)
+        
+            for ver_ind in range(out_frame.shape[0]):
+                gor_ind = ((center_fit[0]) * (ver_ind ** 2) + 
+                            center_fit[1] * ver_ind +
+                            center_fit[2])
+                cv.circle(out_frame, (int(gor_ind), int(ver_ind)), 2, (255, 0, 255),1)
+        except:
+            pass
         return out_frame
 
     def hough_transform(self, frame):
@@ -142,9 +184,9 @@ if __name__ == "__main__":
             original_frame = frame
             cv.imshow('frame_original',frame)
             frame_bin = sol.binareid(frame)
-            ##frame_transofrm = sol.transformFunc(frame_bin)
-            #print(type(frame_bin))
-            frame_hough = sol.hough_transform(frame_bin)
+            frame_transofrm = sol.transformFunc(frame_bin)
+            cv.imshow('frame_transofrm',frame_transofrm)
+            frame_hough = sol.hough_transform(frame_transofrm)
             frame_white_table =  sol.foundWhiteTable(frame_bin)
             cv.imshow('frame_bin',frame_bin)
             cv.imshow('frame_white_table',frame_white_table)
