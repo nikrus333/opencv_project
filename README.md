@@ -10,3 +10,4 @@ dst = cv2.filter2D(img, -1, kernel)
 '''
 blur = cv2.blur(img, (5,5))
 '''
+https://intuit.ru/studies/professional_skill_improvements/11289/courses/1105/lecture/17979?page=2
